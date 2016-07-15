@@ -1,95 +1,174 @@
 <?php
 
-/**
- * Test script for implementing sqlite3.
- * I run this file on win 10 git bash command line using php v7.0.
- */
+namespace sqit;
+
+class sqlite extends \sqlite3 {
+  private $testing = null;
+  private $report = '';
+  private $path = null;
+  private $dbName = null;
+  private $tableName = '';
+
+  public function __construct (String $path = null, String $dbName = null, String $testing = null)
+  {
+    if ($testing) {
+      echo "Creating sqlite [to test {$testing}]", PHP_EOL;
+      $this->testing = $testing;
+    }
+    $this->checkPath($path);
+    $this->checkName($dbName);
+
+    if ($this->dbName != null) $this->open($this->path . $this->dbName);
+
+  }
+
+  public function __destruct ()
+  {
+    if ($this->testing) echo "Destrying sqlite [done testing {$this->testing}]" , PHP_EOL;
+  }
+
+  /**
+   * Inserts a new row into a table. Format $values thus [['',''],[]].
+   * @param  String $tableName   [description]
+   * @param  Array  $columnNames [description]
+   * @param  Array  $values      [description]
+   * @return [type]              [description]
+   */
+  public function insert (String $tableName, Array $columnNames, Array $values)
+  {
+     if ($tableName == null && $this->tableName == null) return $this->report('Needs a table name.');
+     if ($tableName == null && $this->tableName != null) $tableName = $this->tableName;
+     if ($columnNames == null) return $this->report('Needs at least one column.');
+     if ($values == null || $values[0] == null) {
+       return $this->report('Needs values, must be 2d array. use [[\'\',], []].');
+     }
+     $this->tableName = $tableName;
+     // build insert string.
+     foreach ($values as $items) {
+       $sql = "INSERT INTO {$tableName} ";
+       $sql .= "(";
+       foreach ($columnNames as $column) {
+         $sql .= "'$column', ";
+      }
+       $sql = substr($sql, 0, strlen($sql) -2);
+       $sql .= ") VALUES (";
+       foreach ($items as $item) {
+         $sql .= "'$item', ";
+       }
+       $sql = substr($sql, 0, strlen($sql) -2);
+       $sql .= ");";
+       echo $sql, PHP_EOL;
+       // Call insert sql on db.
+       $this->exec($sql);
+    }
+  }
+
+  public function update (String $tableName = null, Array $set = null, String $where = null)
+  {
+    $sql = "UPDATE {$tableName} SET ";
+    foreach ($set as $pair) {
+      $sql .= $pair . ',';
+    }
+    $sql = substr($sql, 0, strlen($sql) -1);
+    $sql .= " WHERE {$where} ;";
+
+    // update x set (c=v, c=v) where a=b
+    $this->exec($sql);
+
+    echo $sql, PHP_EOL;
+  }
+
+  public function createTb (String $tableName = null, Array $values = null)
+  {
+    if ($tableName == null) return $this->report('Needs table name', false);
+    if ($values == null) return $this->report('Needs table values', false);
+
+      $sql = "CREATE TABLE IF NOT EXISTS {$tableName} (";
+      foreach ($values as $value) {
+        $sql .= "{$value},";
+      }
+      $sql = substr($sql, 0, strlen($sql) - 1);
+      $sql .= ");";
+      $this->exec($sql);
+
+// return "CREATE TABLE IF NOT EXISTS users (
+//     username STRING PRIMARY KEY,
+//     password STRING);
+// ";
 
 
-// I just like to know the script fired.
-print "running.\n";
+  }
 
-// ----- Main program
+  public function destroyTb (String $tableName = null)
+  {
 
-// Instansiate the sqlite3 class.
-$db = new myDb();
-// Create a new database or open an existing one.
-$db->openDb('test');
-// Call exec method passing it create table sql.
-$db->execDb($db->createTableSql());
+  }
 
-// Call either exec or query methods on an insert sql.
-// Note: either comment this out or change the name in getInsertSql() method
-// otherwise you will get Unique constraint (set on name in users) error.
-//$db->execDb($db->getInsertSql());
-$db->queryDb($db->getInsertSql());
+  public function destroyDb ()
+  {
+    $this->close();
+    unlink($this->path . $this->dbName);
+  }
 
-// Call query to retrieve all the data in the table.
-$result = $db->queryDb($db->getSelectSql()) or die('select failed.');
+  private function checkName (String $dbName = null)
+  {
+    if ($dbName == null) return $this->report('Needs DB name', false);
+    $this->dbName = $dbName;
+    return $this->dbName;
+  }
 
-// pump out the results of the select query.
-while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-  print_r($row);
+  private function checkPath (String $path = null)
+  {
+    if ($path == null) {
+      $this->path = ''; // Assumed db at same path level;
+      return $this->path;
+    };
+    // Ensure there is a trailing slash on the path.
+    if (substr($path, strlen($path) -1, strlen($path)) != '/') { $path .= '/'; }
+    $this->path = $path;
+    return $path;
+  }
+
+
+
+  /**
+   * Report an error or warning.
+   * @param  String $msg        An error message.
+   * @param  Any $testReturn    Anything you want to return instead of the error msg.
+   * @param  Boolean $fullTrace  Print a full trace of calling functions.
+   * @return Any             Either the report message, or the $testReturn value (if set).
+   */
+  private function report (String $msg, $testReturn = null, $fullTrace = false)
+  {
+    $this->report = '';
+    $e = new \Exception();
+    $trace = $e->getTrace();
+    $last_call = $trace[1];
+    $report = "Issue: $msg [function {$last_call['function']} line {$last_call['line']}]" . PHP_EOL;
+    if ($fullTrace === true) print_r($trace);
+    if ($this->testing) echo $report;
+    //die($report);
+    $this->report = $report;
+    if ($testReturn !== null) {
+      return $testReturn;
+    }
+    return $this->report;
+  }
+
+  public function printReport ()
+  {
+    echo $this->report;
+  }
+
+
+  public function testFunctions ($func, $values)
+  {
+    $result = $this->$func($values);
+    //echo $result . PHP_EOL;
+    return $result;
+  }
+
+
 }
 
-// ----- End main
-
-/**
- * Running php on git bash cmmand using the class extends is the only way I have
- * found to get it to work.
- * The folowing class demonstraites the basic implementation of this technique.
- */
-class myDb extends sqlite3 {
-  // Not used in this example, but you might need it for something.
-  public $dbHandle;
-
-  function __construct () {
-
-  }
-
-  /**
-   * Creates or opens the db file.
-   * @param  string $dbName This is the path and file name.
-   */
-  function openDb ($dbName) {
-    $this->dbHandle = $this->open($dbName);
-  }
-
-  /**
-   * Calls the sqlite exec method on any sql sent to it.
-   * @param  string $sql
-   * @return boolean      true = success
-   */
-  function execDb ($sql) {
-    // exec does not return result sets.
-    return $this->exec($sql);
-  }
-
-  /**
-   * Calls the query method on any sql sent. Returns a result set if there is one.
-   * @param  string $sql
-   * @return resultSet
-   */
-  function queryDb ($sql) {
-    // query returns result sets.
-    return $this->query($sql);
-  }
-
-  // ----- The sql statements used in this example.
-
-  function createTableSql () {
-    return "CREATE TABLE IF NOT EXISTS users (
-        username STRING PRIMARY KEY,
-        password STRING);
-    ";
-  }
-
-  function getInsertSql () {
-    return "INSERT INTO users VALUES ( 'brian', 'secret' );";
-  }
-
-  function getSelectSql () {
-    return "SELECT * FROM users;";
-  }
-
-}
+?>
