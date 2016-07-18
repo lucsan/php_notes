@@ -12,15 +12,19 @@ ini_set('assert.exception', '1'); //in development mode
 //assert('false /* not implmented */', 'Error no implementation.');
 
 //echo "heeeee";
+//
+assert_options(ASSERT_CALLBACK, 'Analysys');
 
 
 // ----- Main
 $allFuncs = get_defined_functions();
 $theseFuncs = $allFuncs['user'];
-echo "Testing :- " . PHP_EOL;
-print_r($theseFuncs);
+//echo "Testing :- " . PHP_EOL;
+//print_r($theseFuncs);
 
 foreach ($theseFuncs as $func) {
+  if (stripos($func, 'test_') === false) continue;
+  echo "Testing: ", $func, PHP_EOL;
   $func();
 }
 
@@ -154,7 +158,7 @@ function test_updateData ()
     $rows[] = $row;
   }
 
-  print_r($rows);
+  //print_r($rows);
   assert('$rows[1][\'stuff\'] == \'larrys stuff\' /* $rows[1][2] is not larrys stuff */');
 
   $set = ['stuff=\'Things larry likes.\''];
@@ -168,8 +172,7 @@ function test_updateData ()
   while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
     $rows[] = $row;
   }
-  print_r($rows);
-
+  //print_r($rows);
 
   $sqli->destroyDb();
   assert('!file_exists(\'databases/test1.sqlite\') /* sqli path is not string */');
@@ -177,9 +180,37 @@ function test_updateData ()
 
 function test_deleteData ()
 {
+  $path = 'databases';
+  $database = 'test1.sqlite';
+  $table = 'test';
+  $values = ['name STRING PRIMARY KEY','id INTEGER', 'stuff STRING'];
+  $sqli = new \sqit\sqlite($path, $database, 'create DB');
+  $create = $sqli->createTb($table, $values);
+  $result = $sqli->query('SELECT * FROM test');
 
+  $sqli->insert($table, ['name', 'id'], [['barry', 1]]);
+  $sqli->insert($table, ['name', 'id', 'stuff'], [['larry', 2, 'larrys stuff']]);
+  $sqli->insert($table, ['name', 'id', 'stuff'], [['harry', 3, 'Harrys stuff.'],['garry', 4, 'Things Garry likes.']]);
+
+  $sqli->delete($table, ['id = 2']);
+
+  //assert();
+
+  $rows = [];
+  while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+    $rows[] = $row;
+  }
+  //print_r($rows);
+  assert('count($rows) == 3 /* Table should contain exactly 3 row. */');
+  assert('$rows[1][\'id\'] == 3 /* $rows[1][id] should equal 3. */');
+
+  $sqli->destroyDb();
+  assert('!file_exists(\'databases/test1.sqlite\') /* sqli path is not string */');
 }
 
+function Analysis ($file, $line, $code, $desc = null) {
+  echo "Analysis", PHP_EOL;
+}
 
 
 class segments {
@@ -219,6 +250,8 @@ class segments {
   }
 
 
+
+
 }
 
 
@@ -226,6 +259,9 @@ class segments {
 
 class Analysis {
 
+function test () {
+
+}
 
 }
 

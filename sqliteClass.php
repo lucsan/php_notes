@@ -57,7 +57,7 @@ class sqlite extends \sqlite3 {
        }
        $sql = substr($sql, 0, strlen($sql) -2);
        $sql .= ");";
-       echo $sql, PHP_EOL;
+       //echo $sql, PHP_EOL;
        // Call insert sql on db.
        $this->exec($sql);
     }
@@ -75,13 +75,13 @@ class sqlite extends \sqlite3 {
     // update x set (c=v, c=v) where a=b
     $this->exec($sql);
 
-    echo $sql, PHP_EOL;
+    //echo $sql, PHP_EOL;
   }
 
   public function createTb (String $tableName = null, Array $values = null)
   {
     if ($tableName == null) return $this->report('Needs table name', false);
-    if ($values == null) return $this->report('Needs table values', false);
+    if ($values == null) return $this->report('Needs column values', false);
 
       $sql = "CREATE TABLE IF NOT EXISTS {$tableName} (";
       foreach ($values as $value) {
@@ -97,6 +97,20 @@ class sqlite extends \sqlite3 {
 // ";
 
 
+  }
+
+  // Delete data.
+  public function delete (String $tableName = null, Array $values = null)
+  {
+    if ($tableName == null) return $this->report('Needs table name', false);
+    if ($values == null) return $this->report('Needs column values', false);
+      // Delete from T where c = i
+
+    foreach ($values as $value) {
+      $sql = "DELETE FROM {$tableName} WHERE {$value};";
+      //echo $sql, PHP_EOL;
+      $this->exec($sql);
+    }
   }
 
   public function destroyTb (String $tableName = null)
